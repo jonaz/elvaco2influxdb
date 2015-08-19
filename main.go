@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/influxdb/influxdb/client"
+	"github.com/ryanuber/columnize"
 )
 
 var elvacoBaseUrl = "http://%s/Elvaco-Rest/rest/"
@@ -24,6 +25,7 @@ type Config struct {
 	StartDate    string
 	User         string
 	Password     string
+	EndDate      string
 }
 
 var config = &Config{}
@@ -32,6 +34,7 @@ func main() {
 	flag.StringVar(&config.House, "house", "all", "House. Can be commaseparated list ex 100,200,300")
 	flag.StringVar(&config.ElvacoServer, "elvacoip", "", "ip address or hostname to elvaco device")
 	flag.StringVar(&config.StartDate, "date", "2015-02-01", "start date")
+	flag.StringVar(&config.EndDate, "enddate", "2015-02-01", "end date. If set will calculate sum between those dates and print result.")
 	flag.StringVar(&config.User, "user", "", "Username")
 	flag.StringVar(&config.Password, "password", "", "Password")
 	flag.Parse()
@@ -47,6 +50,22 @@ func main() {
 	}
 	if config.Password == "" {
 		log.Println("password is required")
+		return
+	}
+
+	if config.EndDate != "" {
+
+		start, err := time.Parse("2006-01-02", config.StartDate)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		end, err := time.Parse("2006-01-02", config.EndDate)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		printUsageBetweenDates(start, end)
 		return
 	}
 
@@ -294,4 +313,92 @@ func MsToTime(ms int64) time.Time {
 
 func TimeToMs(t time.Time) int64 {
 	return t.UnixNano() / int64(time.Millisecond)
+}
+
+func printUsageBetweenDates(start time.Time, end time.Time) {
+	allHouses := []string{}
+	for i := 1; i <= 7; i++ {
+		for x := 1; x <= 3; x++ {
+			allHouses = append(allHouses, strconv.Itoa(i)+"0"+strconv.Itoa(x))
+		}
+	}
+
+	type House struct {
+		Power_kWh    float64
+		Heat_kWh     float64
+		ColdWater_m3 float64
+		HotWater_m3  float64
+	}
+	houses := map[string]*House{}
+
+	s := getSeries()
+	for _, v := range s {
+		//if !strings.HasPrefix(v.SourcePosition, "103,") && !strings.HasPrefix(v.SourcePosition, "303,") {
+		if !isAllowedHouse(allHouses, v.SourcePosition) {
+			continue
+		}
+
+		if v.UnitString == "" {
+			continue
+		}
+
+		//Workaround not to get err-value from elvaco. they are logged with 0.0.0.3 on volume-flow and power (value 999999)
+		if !strings.HasSuffix(v.ApiIdentifier, "0.0.0.0") {
+			continue
+		}
+
+		name := v.DeviceTypeString + "_" + v.UnitTypeString + "_" + v.UnitString
+
+		if _, ok := houses[v.SourcePosition]; !ok {
+			houses[v.SourcePosition] = &House{}
+		}
+
+		if name == "electricity_energy_kWh" {
+			//log.Printf("%#v\n", v)
+			//log.Println(v.SourcePosition, name)
+			houses[v.SourcePosition].Power_kWh = getDiffBetweenTimes(v.MeasurementSerieId, start, end)
+		}
+		if name == "heat_energy_Wh" {
+			houses[v.SourcePosition].Heat_kWh = getDiffBetweenTimes(v.MeasurementSerieId, start, end) / 1000
+		}
+
+		if name == "water_volume_m3" {
+			houses[v.SourcePosition].ColdWater_m3 = getDiffBetweenTimes(v.MeasurementSerieId, start, end)
+		}
+		if name == "warm water (30°C-90°C)_volume_m3" {
+			houses[v.SourcePosition].HotWater_m3 = getDiffBetweenTimes(v.MeasurementSerieId, start, end)
+		}
+	}
+
+	output := []string{}
+	output = append(output, "house|power|heat|coldwater|hotwater")
+
+	for k, v := range houses {
+		tmp := ""
+		tmp += k + "|"
+		tmp += strconv.FormatFloat(v.Power_kWh, 'f', 2, 64) + "|"
+		tmp += strconv.FormatFloat(v.Heat_kWh, 'f', 2, 64) + "|"
+		tmp += strconv.FormatFloat(v.ColdWater_m3, 'f', 2, 64) + "|"
+		tmp += strconv.FormatFloat(v.HotWater_m3, 'f', 2, 64)
+		//fmt.Printf(k)
+		//fmt.Printf("\t\t")
+		//fmt.Printf(strconv.FormatFloat(v.Power_kWh, 'f', 2, 64))
+		//fmt.Printf("\t")
+		//fmt.Printf(strconv.FormatFloat(v.Heat_kWh, 'f', 2, 64))
+		//fmt.Printf("\t\t")
+		//fmt.Printf(strconv.FormatFloat(v.ColdWater_m3, 'f', 2, 64))
+		//fmt.Printf("\t")
+		//fmt.Printf(strconv.FormatFloat(v.HotWater_m3, 'f', 2, 64))
+		//fmt.Printf("\n")
+		output = append(output, tmp)
+	}
+
+	result := columnize.SimpleFormat(output)
+	fmt.Println(result)
+}
+
+func getDiffBetweenTimes(id int, start time.Time, end time.Time) float64 {
+	valueStart := getValues(id, start, start)
+	valueEnd := getValues(id, end, end)
+	return valueEnd[0].Value - valueStart[0].Value
 }
