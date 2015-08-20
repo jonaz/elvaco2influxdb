@@ -16,6 +16,7 @@ import (
 
 	"github.com/influxdb/influxdb/client"
 	"github.com/ryanuber/columnize"
+	"github.com/tealeg/xlsx"
 )
 
 var elvacoBaseUrl = "http://%s/Elvaco-Rest/rest/"
@@ -322,6 +323,13 @@ func TimeToMs(t time.Time) int64 {
 	return t.UnixNano() / int64(time.Millisecond)
 }
 
+type House struct {
+	Power_kWh    float64
+	Heat_kWh     float64
+	ColdWater_m3 float64
+	HotWater_m3  float64
+}
+
 func printUsageBetweenDates(start time.Time, end time.Time) {
 	allHouses := []string{}
 	for i := 1; i <= 7; i++ {
@@ -330,12 +338,6 @@ func printUsageBetweenDates(start time.Time, end time.Time) {
 		}
 	}
 
-	type House struct {
-		Power_kWh    float64
-		Heat_kWh     float64
-		ColdWater_m3 float64
-		HotWater_m3  float64
-	}
 	houses := map[string]*House{}
 
 	s := getSeries()
@@ -421,6 +423,44 @@ func printUsageBetweenDates(start time.Time, end time.Time) {
 
 	result := columnize.SimpleFormat(output)
 	fmt.Println(result)
+	generateExcel(houses)
+}
+
+func generateExcel(houses map[string]*House) {
+
+	file := xlsx.NewFile()
+	sheet := file.AddSheet("Sheet1")
+	row := sheet.AddRow()
+	cell := row.AddCell()
+	cell.SetString("house")
+	cell = row.AddCell()
+	cell.SetString("electricity kWh")
+	cell = row.AddCell()
+	cell.SetString("heat kWh")
+	cell = row.AddCell()
+	cell.SetString("water m3")
+	cell = row.AddCell()
+	cell.SetString("hot water m3")
+
+	for k, v := range houses {
+		row := sheet.AddRow()
+		cell := row.AddCell()
+		cell.SetString(k)
+		cell = row.AddCell()
+		cell.SetFloat(v.Power_kWh)
+		cell = row.AddCell()
+		cell.SetFloat(v.Heat_kWh)
+		cell = row.AddCell()
+		cell.SetFloat(v.ColdWater_m3)
+		cell = row.AddCell()
+		cell.SetFloat(v.HotWater_m3)
+
+	}
+
+	err := file.Save("MyXLSXFile.xlsx")
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func getDiffBetweenTimes(id int, start time.Time, end time.Time) (float64, error) {
