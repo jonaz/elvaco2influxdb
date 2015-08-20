@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -185,6 +186,7 @@ func getValues(measurementSerieId int, from time.Time, to time.Time) []*Mdmdata 
 	url := fmt.Sprintf(elvacoBaseUrl, config.ElvacoServer)
 	c := &http.Client{}
 	req, err := http.NewRequest("GET", url+"mdmdata/measurementSerieId/"+strconv.Itoa(measurementSerieId)+"/effectiveDate/from/"+strconv.Itoa(int(TimeToMs(from)))+"/to/"+strconv.Itoa(int(TimeToMs(to)))+"/limit/100/offset/0", nil)
+	//log.Println(req.URL.String())
 	req.SetBasicAuth(config.User, config.Password)
 	resp, err := c.Do(req)
 	if err != nil {
@@ -205,6 +207,11 @@ func getValues(measurementSerieId int, from time.Time, to time.Time) []*Mdmdata 
 		fmt.Println(err)
 		return nil
 	}
+
+	//for k, v := range result.Values {
+	//log.Println(k)
+	//log.Printf("%#v\n", v)
+	//}
 
 	return result.Values
 }
@@ -353,20 +360,39 @@ func printUsageBetweenDates(start time.Time, end time.Time) {
 			houses[v.SourcePosition] = &House{}
 		}
 
+		var err error
 		if name == "electricity_energy_kWh" {
 			//log.Printf("%#v\n", v)
 			//log.Println(v.SourcePosition, name)
-			houses[v.SourcePosition].Power_kWh = getDiffBetweenTimes(v.MeasurementSerieId, start, end)
+			houses[v.SourcePosition].Power_kWh, err = getDiffBetweenTimes(v.MeasurementSerieId, start, end)
+			if err != nil {
+				log.Println("Error fetching ", v.SourcePosition, name, v.MeasurementSerieId)
+				return
+			}
 		}
 		if name == "heat_energy_Wh" {
-			houses[v.SourcePosition].Heat_kWh = getDiffBetweenTimes(v.MeasurementSerieId, start, end) / 1000
+			val, err := getDiffBetweenTimes(v.MeasurementSerieId, start, end)
+			houses[v.SourcePosition].Heat_kWh = val / 1000
+			if err != nil {
+				log.Println("Error fetching ", v.SourcePosition, name, v.MeasurementSerieId)
+				return
+			}
+
 		}
 
 		if name == "water_volume_m3" {
-			houses[v.SourcePosition].ColdWater_m3 = getDiffBetweenTimes(v.MeasurementSerieId, start, end)
+			houses[v.SourcePosition].ColdWater_m3, err = getDiffBetweenTimes(v.MeasurementSerieId, start, end)
+			if err != nil {
+				log.Println("Error fetching ", v.SourcePosition, name, v.MeasurementSerieId)
+				return
+			}
 		}
 		if name == "warm water (30°C-90°C)_volume_m3" {
-			houses[v.SourcePosition].HotWater_m3 = getDiffBetweenTimes(v.MeasurementSerieId, start, end)
+			houses[v.SourcePosition].HotWater_m3, err = getDiffBetweenTimes(v.MeasurementSerieId, start, end)
+			if err != nil {
+				log.Println("Error fetching ", v.SourcePosition, name, v.MeasurementSerieId)
+				return
+			}
 		}
 	}
 
@@ -397,8 +423,16 @@ func printUsageBetweenDates(start time.Time, end time.Time) {
 	fmt.Println(result)
 }
 
-func getDiffBetweenTimes(id int, start time.Time, end time.Time) float64 {
-	valueStart := getValues(id, start, start)
-	valueEnd := getValues(id, end, end)
-	return valueEnd[0].Value - valueStart[0].Value
+func getDiffBetweenTimes(id int, start time.Time, end time.Time) (float64, error) {
+	valueStart := getValues(id, start, start.Add(time.Hour))
+	valueEnd := getValues(id, end, end.Add(time.Hour))
+	if len(valueEnd) == 0 {
+		log.Println("error running getValue", valueEnd)
+		return 0, errors.New("Error fetching from rest API")
+	}
+	if len(valueStart) == 0 {
+		log.Println("error running getValue", valueStart)
+		return 0, errors.New("Error fetching from rest API")
+	}
+	return valueEnd[0].Value - valueStart[0].Value, nil
 }
