@@ -36,7 +36,7 @@ func main() {
 	flag.StringVar(&config.House, "house", "all", "House. Can be commaseparated list ex 100,200,300")
 	flag.StringVar(&config.ElvacoServer, "elvacoip", "", "ip address or hostname to elvaco device")
 	flag.StringVar(&config.StartDate, "date", "2015-02-01", "start date")
-	flag.StringVar(&config.EndDate, "enddate", "2015-02-01", "end date. If set will calculate sum between those dates and print result.")
+	flag.StringVar(&config.EndDate, "enddate", "", "end date. If set will calculate sum between those dates and print result.")
 	flag.StringVar(&config.User, "user", "", "Username")
 	flag.StringVar(&config.Password, "password", "", "Password")
 	flag.Parse()
