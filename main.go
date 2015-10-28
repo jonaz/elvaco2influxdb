@@ -429,7 +429,12 @@ func printUsageBetweenDates(start time.Time, end time.Time) {
 func generateExcel(houses map[string]*House) {
 
 	file := xlsx.NewFile()
-	sheet := file.AddSheet("Sheet1")
+	sheet, err := file.AddSheet("Sheet1")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	row := sheet.AddRow()
 	cell := row.AddCell()
 	cell.SetString("house")
@@ -457,7 +462,7 @@ func generateExcel(houses map[string]*House) {
 
 	}
 
-	err := file.Save("MyXLSXFile.xlsx")
+	err = file.Save("MyXLSXFile.xlsx")
 	if err != nil {
 		log.Println(err)
 	}
