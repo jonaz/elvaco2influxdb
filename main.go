@@ -99,7 +99,17 @@ func main() {
 		t, err := time.Parse("2006-01-02", config.StartDate)
 		if err != nil {
 			log.Println(err)
-			return
+
+			dur,err := time.ParseDuration(config.StartDate)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			t = time.Now().UTC().Add(dur)
+			t = t.Truncate(24*time.Hour)
+			log.Println("TIME", t)
+
 		}
 
 		var next time.Time
