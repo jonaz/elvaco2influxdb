@@ -124,7 +124,7 @@ func main() {
 			name := v.DeviceTypeString + "_" + v.UnitTypeString + "_" + v.UnitString
 
 			//Aggregate daily for Wh and m3 metrics
-			if strings.HasSuffix(v.UnitString, "Wh") || strings.HasSuffix(v.UnitString, "m3") {
+			if len(values) == 25 && (strings.HasSuffix(v.UnitString, "Wh") || strings.HasSuffix(v.UnitString, "m3")) {
 				diff := values[len(values)-1].Value - values[0].Value
 				p := client.Point{
 					Measurement: name + "_daily",
