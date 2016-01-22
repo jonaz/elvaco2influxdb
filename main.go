@@ -100,14 +100,14 @@ func main() {
 		if err != nil {
 			log.Println(err)
 
-			dur,err := time.ParseDuration(config.StartDate)
+			dur, err := time.ParseDuration(config.StartDate)
 			if err != nil {
 				log.Println(err)
 				return
 			}
 
 			t = time.Now().UTC().Add(dur)
-			t = t.Truncate(24*time.Hour)
+			t = t.Truncate(24 * time.Hour)
 			log.Println("TIME", t)
 
 		}
@@ -384,11 +384,17 @@ func printUsageBetweenDates(start time.Time, end time.Time) {
 		}
 		if name == "heat_energy_Wh" {
 			val, err := getDiffBetweenTimes(v.MeasurementSerieId, start, end)
-			houses[v.SourcePosition].Heat_kWh = val / 1000
 			if err != nil {
 				log.Println("Error fetching ", v.SourcePosition, name, v.MeasurementSerieId)
 				return
 			}
+			airHeater, err := getSpecialHouseWithAirHeater(s, v.SourcePosition, start, end)
+			if err != nil {
+				log.Println("Error fetching ", v.SourcePosition, name, v.MeasurementSerieId)
+				return
+			}
+
+			houses[v.SourcePosition].Heat_kWh = (val + airHeater) / 1000
 
 		}
 
@@ -434,6 +440,31 @@ func printUsageBetweenDates(start time.Time, end time.Time) {
 	result := columnize.SimpleFormat(output)
 	fmt.Println(result)
 	generateExcel(houses)
+}
+
+func getSpecialHouseWithAirHeater(s []*Viewmdmserie, house string, start, end time.Time) (float64, error) {
+	specialHouses := map[string]string{
+		"401": "401 värmebatteri",
+		"402": "402 värmebatteri",
+		"403": "403 värmebatteri",
+	}
+
+	for k, heaterSourcePosition := range specialHouses {
+		log.Println("k:", k)
+		log.Println("heaterSourcePosition:", heaterSourcePosition)
+		log.Println("house:", house)
+		if strings.HasPrefix(house, k) {
+			for _, v := range s {
+				name := v.DeviceTypeString + "_" + v.UnitTypeString + "_" + v.UnitString
+				if strings.Contains(v.SourcePosition, heaterSourcePosition) && name == "heat_energy_Wh" {
+					log.Println("found s: ", v)
+					return getDiffBetweenTimes(v.MeasurementSerieId, start, end)
+				}
+			}
+		}
+	}
+
+	return 0, nil
 }
 
 func generateExcel(houses map[string]*House) {
