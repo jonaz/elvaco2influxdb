@@ -450,14 +450,10 @@ func getSpecialHouseWithAirHeater(s []*Viewmdmserie, house string, start, end ti
 	}
 
 	for k, heaterSourcePosition := range specialHouses {
-		log.Println("k:", k)
-		log.Println("heaterSourcePosition:", heaterSourcePosition)
-		log.Println("house:", house)
 		if strings.HasPrefix(house, k) {
 			for _, v := range s {
 				name := v.DeviceTypeString + "_" + v.UnitTypeString + "_" + v.UnitString
 				if strings.Contains(v.SourcePosition, heaterSourcePosition) && name == "heat_energy_Wh" {
-					log.Println("found s: ", v)
 					return getDiffBetweenTimes(v.MeasurementSerieId, start, end)
 				}
 			}
