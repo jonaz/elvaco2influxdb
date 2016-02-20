@@ -348,6 +348,10 @@ func printUsageBetweenDates(start time.Time, end time.Time) {
 		}
 	}
 
+	if config.House != "" {
+		allHouses = config.SplitByHouse()
+	}
+
 	houses := map[string]*House{}
 
 	s := getSeries()
@@ -390,7 +394,7 @@ func printUsageBetweenDates(start time.Time, end time.Time) {
 			}
 			airHeater, err := getSpecialHouseWithAirHeater(s, v.SourcePosition, start, end)
 			if err != nil {
-				log.Println("Error fetching ", v.SourcePosition, name, v.MeasurementSerieId)
+				log.Println("Error getSpecialHouseWithAirHeater ", v.SourcePosition, name, v.MeasurementSerieId)
 				return
 			}
 
@@ -509,11 +513,11 @@ func getDiffBetweenTimes(id int, start time.Time, end time.Time) (float64, error
 	valueStart := getValues(id, start, start.Add(time.Hour))
 	valueEnd := getValues(id, end, end.Add(time.Hour))
 	if len(valueEnd) == 0 {
-		log.Println("error running getValue", valueEnd)
+		log.Printf("error running getValues End from %s to %s values %s\n", start, end, valueEnd)
 		return 0, errors.New("Error fetching from rest API")
 	}
 	if len(valueStart) == 0 {
-		log.Println("error running getValue", valueStart)
+		log.Printf("error running getValues Start from %s to %s values %s\n", start, end, valueStart)
 		return 0, errors.New("Error fetching from rest API")
 	}
 	return valueEnd[0].Value - valueStart[0].Value, nil
