@@ -56,7 +56,6 @@ func main() {
 	}
 
 	if config.EndDate != "" {
-
 		start, err := time.Parse("2006-01-02", config.StartDate)
 		if err != nil {
 			log.Println(err)
@@ -109,7 +108,6 @@ func main() {
 			t = time.Now().UTC().Add(dur)
 			t = t.Truncate(24 * time.Hour)
 			log.Println("TIME", t)
-
 		}
 
 		var next time.Time
@@ -163,7 +161,6 @@ func main() {
 			db.Log(points)
 		}
 	}
-
 }
 
 type Viewmdmserie struct {
@@ -193,7 +190,6 @@ type Mdmdata struct {
 }
 
 func getValues(measurementSerieId int, from time.Time, to time.Time) []*Mdmdata {
-
 	url := fmt.Sprintf(elvacoBaseUrl, config.ElvacoServer)
 	c := &http.Client{}
 	req, err := http.NewRequest("GET", url+"mdmdata/measurementSerieId/"+strconv.Itoa(measurementSerieId)+"/effectiveDate/from/"+strconv.Itoa(int(TimeToMs(from)))+"/to/"+strconv.Itoa(int(TimeToMs(to)))+"/limit/100/offset/0", nil)
@@ -227,7 +223,6 @@ func getValues(measurementSerieId int, from time.Time, to time.Time) []*Mdmdata 
 	return result.Values
 }
 func getSeries() []*Viewmdmserie {
-
 	url := fmt.Sprintf(elvacoBaseUrl, config.ElvacoServer)
 	c := &http.Client{}
 	req, err := http.NewRequest("GET", url+"viewmdmserie/all", nil)
@@ -255,7 +250,6 @@ type InfluxDb struct {
 }
 
 func (i *InfluxDb) Connect() {
-
 	u, err := url.Parse(fmt.Sprintf("http://%s:8086", "localhost"))
 	if err != nil {
 		log.Println(err)
@@ -279,7 +273,6 @@ func (i *InfluxDb) Connect() {
 		return
 	}
 	log.Println("Connected to influxdb: %v, %s", dur, ver)
-
 }
 
 func (self *InfluxDb) Log(points []client.Point) {
@@ -399,7 +392,6 @@ func printUsageBetweenDates(start time.Time, end time.Time) {
 			}
 
 			houses[v.SourcePosition].Heat_kWh = (val + airHeater) / 1000
-
 		}
 
 		if name == "water_volume_m3" {
@@ -468,7 +460,6 @@ func getSpecialHouseWithAirHeater(s []*Viewmdmserie, house string, start, end ti
 }
 
 func generateExcel(houses map[string]*House) {
-
 	file := xlsx.NewFile()
 	sheet, err := file.AddSheet("Sheet1")
 	if err != nil {
@@ -500,7 +491,6 @@ func generateExcel(houses map[string]*House) {
 		cell.SetFloat(v.ColdWater_m3)
 		cell = row.AddCell()
 		cell.SetFloat(v.HotWater_m3)
-
 	}
 
 	err = file.Save("MyXLSXFile.xlsx")
@@ -510,8 +500,8 @@ func generateExcel(houses map[string]*House) {
 }
 
 func getDiffBetweenTimes(id int, start time.Time, end time.Time) (float64, error) {
-	valueStart := getValues(id, start, start.Add(time.Hour))
-	valueEnd := getValues(id, end, end.Add(time.Hour))
+	valueStart := getValues(id, start, start.Add(time.Hour*12))
+	valueEnd := getValues(id, end, end.Add(time.Hour*12))
 	if len(valueEnd) == 0 {
 		log.Printf("error running getValues End from %s to %s values %s\n", start, end, valueEnd)
 		return 0, errors.New("Error fetching from rest API")
